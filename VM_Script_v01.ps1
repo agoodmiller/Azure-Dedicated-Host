@@ -107,6 +107,9 @@ $VirtualMachine = Add-AzVMNetworkInterface -VM $VirtualMachine -Id (($VMName).Ne
 
 Remove-AzVM -Name $VM -ResourceGroupName $VMName.ResourceGroupName -Force
 
+#wait 2 minutes for everything to be fully removed from azure
+Start-Sleep -Seconds 120
+
 # Create virtual machine with Managed Disk on dedicated host specific earlier
 
 New-AzVM -VM $VirtualMachine -ResourceGroupName ($VMName).ResourceGroupName -Location ($VMName).Location
