@@ -11,6 +11,7 @@
 # documentation, even if Microsoft has been advised of the possibility of such damages.
 
 # Specific VM Name that you want to move from IaaS to Dedicated Host
+$subscription = ''
 $VM = 'vmtest01'
 
 # Specific your Dedicated Host, Host Group and Resource Group details where dedicated host has been deployed
@@ -18,16 +19,67 @@ $hostname = 'dHosts01'
 $HGName = 'HostGroup1'
 $resourceGroupName = 'testing'
 
+#select the proper subscription
+Set-AzContext -SubscriptionName $subscription
+
 # below commands captures the existing VM configuration
 
 $VMName = Get-AzVM -Name $VM
+$VMName.HardwareProfile.VmSize
+
+$dhInfo = Get-AzHost -ResourceGroupName $resourceGroupName -Name $hostname -HostGroupName $HGName -InstanceView
+
+$hostGrouInfo = Get-AzHostGroup -ResourceGroupName $resourceGroupName -HostGroupName $HGName
+
+#test and see if they are in the same Zone
+if (!([string]::IsNullOrEmpty($hostGroupInfo.Zones) -AND [string]::IsNullOrEmpty($VMName.Zones)))
+{ 
+    write-host "Both the Host group and Vm Zones aren't Empty"
+    write-host $VM "=" $VMName.Zones
+    write-host $HGName "=" $hostGroupInfo.Zones
+    if (!($hostGroupInfo.Zones -Contains $VMName.Zones))
+    {
+        write-host "The Host group and Vm Zones aren't the same"
+        write-host $VM "=" $VMName.Zones
+        write-host $HGName "=" $hostGroupInfo.Zones
+		exit 0
+    }
+}else{
+	write-host "All good. Both are in the same Zone"
+    write-host $VM "=" $VMName.Zones
+    write-host $HGName "=" $hostGroupInfo.Zones	
+}
+#Test and see if the server size is on the Designated host. 
+$found=0
+foreach ($i in $dhinfo.InstanceView.AvailableCapacity.AllocatableVMs) {
+    write-host $i.VmSize
+	if ($i.VmSize -Contains $VMName.HardwareProfile.VmSize)
+	{
+		$found = 1
+		 write-host "Machine Size Found"
+		 write-host $i.VmSize
+		 write-host $VMName.HardwareProfile.VmSize
+		 break
+	}
+}
+if ($found -eq 0)
+{
+	write-host $VMName.HardwareProfile.VmSize "not found"
+	exit 0
+}else{
+	write-host $VMName.HardwareProfile.VmSize "found"
+
+}
+
+
+#Provide the size of the virtual machine
+#D2s_v3,D4s, D8x, D16s, D32-8x, D32-16s, D32s, D48s, D64-16s, D64-32s D64s are supported on DSv3-Type2 dedicated host
+$virtualMachineSize = $VMName.HardwareProfile.VmSize
+
 $virtualMachineName = $VMName.Name
 $osdisk = Get-AzDisk -Name ($VMName).StorageProfile.OsDisk.name
 $vmdisks = ($VMName).StorageProfile.DataDisks
 
-#Provide the size of the virtual machine
-#D2s_v3,D4s, D8x, D16s, D32-8x, D32-16s, D32s, D48s, D64-16s, D64-32s D64s are supported on DSv3-Type2 dedicated host
-$virtualMachineSize = 'Standard_D2s_v3'
 
 # Initialize virtual machine configuration
 $dhost = Get-AzHost -Name $hostname -ResourceGroupName $resourceGroupName -HostGroupName $HGName
